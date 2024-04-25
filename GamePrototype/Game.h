@@ -27,4 +27,6 @@ private:
 	void Initialize();
 	void Cleanup( );
 	void ClearBackground( ) const;
+
+	Point2f m_Movement{0.f, 0.f};
 };
