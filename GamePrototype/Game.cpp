@@ -2,6 +2,7 @@
 #include "Game.h"
 #include "utils.h"
 #include "iostream"
+#include "Texture.h"
 
 Game::Game( const Window& window ) 
 	:BaseGame{ window }
@@ -16,29 +17,66 @@ Game::~Game( )
 
 void Game::Initialize( )
 {
-	
+	m_Text = new Texture("level0", "dpcomic.ttf", 60, Color4f( 0.f, 0.f, 0.f, 1.f ));
+	m_LoseTex = new Texture("You lose", "dpcomic.ttf", 100, Color4f(0.f, 0.f, 0.f, 1.f));
+	Point2f point1{GetViewPort().left + 100.f, GetViewPort().height - 100.f};
+	Point2f point2{GetViewPort().width - 100.f, GetViewPort().height - 100.f};
+	Point2f point3{ GetViewPort().width - 100.f, GetViewPort().bottom + 100.f};
+	Point2f point4{ GetViewPort().left + 100.f, GetViewPort().bottom + 100.f };
+
+	m_Platform.push_back(point1);
+	m_Platform.push_back(point2);
+	m_Platform.push_back(point3);
+	m_Platform.push_back(point4);
+	m_direction = standard;
 }
 
 void Game::Cleanup( )
 {
+	delete m_Text;
+	m_Text = nullptr;
+
+	delete m_LoseTex;
+	m_LoseTex = nullptr;
 }
 
 void Game::Update( float elapsedSec )
 {
-	UpdateMap();
-	RotateMap();
-	m_GreenBallPosition = UpdateBall(elapsedSec, m_GreenBallPosition);
-	m_RedBallPosition = UpdateBall(elapsedSec, m_RedBallPosition);
+	m_RedSquareInfo = UpdateSquares(elapsedSec, m_RedSquareInfo.Square, m_RedSquareInfo.moving);
+	m_GreenSquareInfo = UpdateSquares(elapsedSec, m_GreenSquareInfo.Square, m_GreenSquareInfo.moving);
+
+	if (!m_lose)
+	{
+		if (utils::IsOverlapping(m_RedSquareInfo.Square, m_GreenSquareInfo.Square) || utils::IsOverlapping(m_RedSquareInfo.Square, m_BlueSquare))
+		{
+			m_direction = standard;
+			m_lose = true;
+		}
+		else if (utils::IsOverlapping(m_GreenSquareInfo.Square, m_BlueSquare))
+		{
+			m_direction = standard;
+			m_lose = false;
+		}
+	}
+
 }
 
 void Game::Draw() const
 {
 	DrawMap();
 
+	m_Text->Draw(Point2f(GetViewPort().width / 2 - m_Text->GetWidth() / 2, GetViewPort().height - 100.f));
 	utils::SetColor(Color4f(0.1f, 1.f, 0.1f, 1.f));
-	utils::FillEllipse(m_GreenBallPosition, 20, 20);
+	utils::FillRect(m_GreenSquareInfo.Square);
 	utils::SetColor(Color4f(1.f, 0.f, 0.1f, 1.f));
-	utils::FillEllipse(m_RedBallPosition, 20, 20);
+	utils::FillRect(m_RedSquareInfo.Square);
+	utils::SetColor(Color4f(0.f, 0.f, 1.f, 1.f));
+	utils::FillRect(m_BlueSquare);
+
+	if (m_lose)
+	{
+		m_LoseTex->Draw(Point2f(GetViewPort().width / 2 - m_LoseTex->GetWidth() / 2, 5.f));
+	}
 }
 void Game::ProcessKeyDownEvent( const SDL_KeyboardEvent & e )
 {
@@ -47,7 +85,39 @@ void Game::ProcessKeyDownEvent( const SDL_KeyboardEvent & e )
 
 void Game::ProcessKeyUpEvent( const SDL_KeyboardEvent& e )
 {
+	if (!m_RedSquareInfo.moving && !m_GreenSquareInfo.moving)
+	{
+		m_RedSquareInfo.moving = true;
+		m_GreenSquareInfo.moving = true;
 
+		switch (e.keysym.sym)
+		{
+		case SDLK_UP:
+			m_direction = up;
+			break;
+		case SDLK_DOWN:
+			m_direction = down;
+			break;
+		case SDLK_LEFT:
+			m_direction = left;
+			break;
+		case SDLK_RIGHT:
+			m_direction = right;
+			break;
+		}
+	}
+
+	switch (e.keysym.sym)
+	{
+	case SDLK_r:
+		m_direction = standard;
+		m_lose = false;
+		m_RedSquareInfo.Square = Rectf(GetViewPort().width - 155.f, GetViewPort().height - 155.f, 50.f, 50.f);
+		m_RedSquareInfo.moving = false;
+		m_GreenSquareInfo.Square = Rectf(105.f, GetViewPort().height - 155.f, 50.f, 50.f);
+		m_GreenSquareInfo.moving = false;
+		break;
+	}
 }
 
 void Game::ProcessMouseMotionEvent( const SDL_MouseMotionEvent& e )
@@ -103,97 +173,67 @@ void Game::DrawMap() const
 
 	for (int i = 0; i < m_Platform.size() - 1; i++)
 	{
-		utils::DrawLine(m_Platform[i], m_Platform[i + 1], 5.f);
+		utils::DrawLine(m_Platform[i], m_Platform[i + 1], 10.f);
 	}
-	utils::DrawLine(m_Platform[0], m_Platform[m_Platform.size() - 1], 5.f);
-
-	//utils::DrawEllipse(Point2f(centerX, CenterY), radius, radius);
-	//utils::DrawRect(GetViewPort().width / 2 - 325.f, GetViewPort().height / 2 - radius, radius * 2, radius * 2);
+	utils::DrawLine(m_Platform[0], m_Platform[m_Platform.size() - 1], 10.f);
 }
 
-void Game::UpdateMap()
+Game::SquareInfo Game::UpdateSquares(float elapsedsec, Rectf Square, bool moving)
 {
-	m_Platform.clear();
-	float radius{ 325.f };
-	const float pi{ 3.1415f };
-	const float centerX{ GetViewPort().width / 2 };
-	const float CenterY{ GetViewPort().height / 2 };
-	float angle{ 45 * 0.0174532925f };
-	float angle2{ 135 * 0.0174532925f };
-	float angleInc{ 2 * pi / 360 };
+	Vector2f velocity{ 500.f, 500.f };
 
-	angle = angle + angleInc * m_Movement.x;
-	angle2 = angle2 + angleInc * m_Movement.x;
+	//Up
+	Point2f raystartUp{ Square.left, Square.bottom + Square.height + 5.f};
+	Point2f rayEndUp{ Square.left, Square.bottom + 5.f};
 
-	Point2f point1{ float(centerX + cos(angle) * -radius), float(CenterY + sin(angle) * -radius) };
-	Point2f point2{ float(centerX + cos(angle2) * radius), float(CenterY + sin(angle2) * radius) };
-	Point2f point3{ float(centerX + cos(angle) * radius), float(CenterY + sin(angle) * radius) };
-	Point2f point4{ float(centerX + cos(angle2) * -radius), float(CenterY + sin(angle2) * -radius) };
+	//Down
+	Point2f raystartDown{ Square.left, Square.bottom + Square.height - 5.f };
+	Point2f rayEndDown{ Square.left, Square.bottom - 5.f };
 
-	m_Platform.push_back(point1);
-	m_Platform.push_back(point2);
-	m_Platform.push_back(point3);
-	m_Platform.push_back(point4);
-}
+	//Left
+	Point2f raystartLeft{Square.left - 5.f, Square.bottom};
+	Point2f rayEndLeft{ Square.left + Square.width - 5.f, Square.bottom + Square.height};
 
-Point2f Game::UpdateBall(float elapsedSec, Point2f Position)
-{
-	Rectf bounds{ Position.x - 20, Position.y - 20, 40, 40 };
-
-	Point2f raystart{ bounds.left, bounds.bottom + bounds.height };
-	Point2f rayEnd{ bounds.left, bounds.bottom - 5.f};
-
-	Point2f raystart2{ bounds.left + bounds.width, bounds.bottom + bounds.height };
-	Point2f rayEnd2{ bounds.left + bounds.width, bounds.bottom - 5.f};
+	//Right
+	Point2f rayStartRight{ Square.left + 5.f, Square.bottom};
+	Point2f rayEndRight{ Square.left + Square.width + 5.f, Square.bottom};
 	utils::HitInfo result{};
 
-	if (!utils::IsPointInPolygon(Position, m_Platform))
+	switch (m_direction)
 	{
-		Position.y += 100.f;
-	}
-	else
-	{
-		if (utils::Raycast(m_Platform, raystart, rayEnd, result) && utils::Raycast(m_Platform, raystart2, rayEnd2, result))
+	case Game::left:
+		if (utils::Raycast(m_Platform, raystartLeft, rayEndLeft, result))
 		{
-			m_Velocity.y = 0;
+			velocity.x = 0;
+			moving = false;
 		}
-		else if (utils::Raycast(m_Platform, raystart, rayEnd, result) && !utils::Raycast(m_Platform, raystart2, rayEnd2, result))
+		Square.left -= velocity.x * elapsedsec;
+		break;
+	case Game::right:
+		if (utils::Raycast(m_Platform, rayStartRight, rayEndRight, result))
 		{
-			Position.x += m_Velocity.x * elapsedSec;
-			Position.y -= m_Velocity.y * elapsedSec;
+			velocity.x = 0;
+			moving = false;
 		}
-		else if (!utils::Raycast(m_Platform, raystart, rayEnd, result) && utils::Raycast(m_Platform, raystart2, rayEnd2, result))
+		Square.left += velocity.x * elapsedsec;
+		break;
+	case Game::up:
+		if (utils::Raycast(m_Platform, raystartUp, rayEndUp, result))
 		{
-			Position.x -= m_Velocity.x * elapsedSec;
-			Position.y -= m_Velocity.y * elapsedSec;
+			velocity.y = 0;
+			moving = false;
 		}
-		else
+		Square.bottom += velocity.y * elapsedsec;
+		break;
+	case Game::down:
+		if (utils::Raycast(m_Platform, raystartDown, rayEndDown, result))
 		{
-			m_Velocity.y = 100.f;
-			Position.y -= m_Velocity.y * elapsedSec;
+			velocity.y = 0;
+			moving = false;
 		}
-	}
-	return Position;
-}
-
-void Game::RotateMap()
-{
-	const Uint8* keyboard_state_array = SDL_GetKeyboardState(NULL);
-	const float speed{ 0.5f };
-
-	if (keyboard_state_array[SDL_SCANCODE_LEFT])
-	{
-		m_Movement.x += speed;
-		m_Movement.y += speed;
-	}
-	if (keyboard_state_array[SDL_SCANCODE_RIGHT])
-	{
-		m_Movement.x -= speed;
-		m_Movement.y -= speed;
+		Square.bottom -= velocity.y * elapsedsec;
+		break;
 	}
 
-	if (m_Movement.x >= 360.f)
-	{
-		m_Movement = Point2f{ 0, 0 };
-	}
+	return{moving, Square};
 }

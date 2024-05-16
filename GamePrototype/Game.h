@@ -2,6 +2,7 @@
 #include "BaseGame.h"
 #include "vector"
 #include "Vector2f.h"
+#include "Texture.h"
 class Game : public BaseGame
 {
 public:
@@ -26,17 +27,43 @@ public:
 private:
 
 	// FUNCTIONS
+	struct SquareInfo
+	{
+		bool moving{};
+		Rectf Square{};
+	};
+
 	void Initialize();
 	void Cleanup();
 	void ClearBackground() const;
 	void DrawMap() const;
-	void UpdateMap();
-	Point2f UpdateBall(float elapsedsec, Point2f Position);
-	void RotateMap();
+	SquareInfo UpdateSquares(float elapsedsec, Rectf Square, bool moving);
 
-	Point2f m_Movement{ 0.f, 0.f };
-	Point2f m_GreenBallPosition{ 300.f, 500.f };
-	Point2f m_RedBallPosition{ 700.f, 500.f };
-	Vector2f m_Velocity{ 200.f, 100.f };
+
+	Rectf m_BlueSquare{GetViewPort().width / 2 - 50.f, GetViewPort().bottom + 105.f, 100.f, 100.f};
 	std::vector<Point2f> m_Platform{};
+	bool m_Moving{ false };
+	bool m_lose{ false };
+
+	enum Direction
+	{
+		left,
+		right,
+		up,
+		down,
+		standard,
+	};
+
+	enum levels
+	{
+		level0,
+		level1,
+		level2,
+	};
+
+	SquareInfo m_RedSquareInfo{false, Rectf(GetViewPort().width - 155.f, GetViewPort().height - 155.f, 50.f, 50.f)};
+	SquareInfo m_GreenSquareInfo{false, Rectf(105.f, GetViewPort().height - 155.f, 50.f, 50.f)};
+	Direction m_direction{};
+	Texture* m_Text;
+	Texture* m_LoseTex;
 };
