@@ -37,6 +37,7 @@ private:
 	void Cleanup();
 	void ClearBackground() const;
 	void DrawMap() const;
+	void CreateLevel();
 	SquareInfo UpdateSquares(float elapsedsec, Rectf Square, bool moving);
 
 
@@ -61,9 +62,12 @@ private:
 		level2,
 	};
 
+	std::vector<std::vector<Point2f>> m_Vertices;
 	SquareInfo m_RedSquareInfo{false, Rectf(GetViewPort().width - 155.f, GetViewPort().height - 155.f, 50.f, 50.f)};
 	SquareInfo m_GreenSquareInfo{false, Rectf(105.f, GetViewPort().height - 155.f, 50.f, 50.f)};
 	Direction m_direction{};
+	levels m_Level;
 	Texture* m_Text;
 	Texture* m_LoseTex;
+	Vector2f m_Velocity{ 500.f, 500.f };
 };
