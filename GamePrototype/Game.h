@@ -45,6 +45,7 @@ private:
 	std::vector<Point2f> m_Platform{};
 	bool m_Moving{ false };
 	bool m_lose{ false };
+	bool m_Win{ false };
 
 	enum Direction
 	{
@@ -60,6 +61,7 @@ private:
 		level0,
 		level1,
 		level2,
+		level3,
 	};
 
 	std::vector<std::vector<Point2f>> m_Vertices;
@@ -67,7 +69,6 @@ private:
 	SquareInfo m_GreenSquareInfo{false, Rectf(105.f, GetViewPort().height - 155.f, 50.f, 50.f)};
 	Direction m_direction{};
 	levels m_Level;
-	Texture* m_Text;
-	Texture* m_LoseTex;
 	Vector2f m_Velocity{ 500.f, 500.f };
+	std::vector<Texture*> m_Text;
 };

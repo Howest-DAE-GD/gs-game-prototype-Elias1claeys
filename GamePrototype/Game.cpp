@@ -19,7 +19,15 @@ Game::~Game( )
 void Game::Initialize( )
 {
 	m_Level = level0;
-	m_LoseTex = new Texture("You lose", "dpcomic.ttf", 100, Color4f(0.f, 0.f, 0.f, 1.f));
+	m_Text.push_back(new Texture("You lose", "dpcomic.ttf", 100, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("Green + red = lose", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("Blue + red = lose", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("Blue + green = win", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("You Win", "dpcomic.ttf", 100, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("level 0", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("level 1", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("level 2", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
+	m_Text.push_back(new Texture("level 3", "dpcomic.ttf", 50, Color4f(0.f, 0.f, 0.f, 1.f)));
 	m_direction = standard;
 	CreateLevel();
 }
@@ -28,11 +36,11 @@ void Game::Cleanup( )
 {
 	m_Vertices.clear();
 
-	delete m_Text;
-	m_Text = nullptr;
-
-	delete m_LoseTex;
-	m_LoseTex = nullptr;
+	for (int i = 0; i < m_Text.size(); i++)
+	{
+		delete m_Text[i];
+		m_Text[i] = nullptr;
+	}
 }
 
 void Game::Update( float elapsedSec )
@@ -40,7 +48,7 @@ void Game::Update( float elapsedSec )
 	m_RedSquareInfo = UpdateSquares(elapsedSec, m_RedSquareInfo.Square, m_RedSquareInfo.moving);
 	m_GreenSquareInfo = UpdateSquares(elapsedSec, m_GreenSquareInfo.Square, m_GreenSquareInfo.moving);
 
-	if (!m_lose)
+	if (!m_lose && !m_Win)
 	{
 		if (utils::IsOverlapping(m_RedSquareInfo.Square, m_GreenSquareInfo.Square) || utils::IsOverlapping(m_RedSquareInfo.Square, m_BlueSquare))
 		{
@@ -61,12 +69,19 @@ void Game::Update( float elapsedSec )
 				m_Level = level2;
 				break;
 			case Game::level2:
+				m_Level = level3;
+				break;
+			case Game::level3:
+				m_Win = true;
 				break;
 			default:
 				break;
 			}
 
-			CreateLevel();
+			if (!m_Win)
+			{
+				CreateLevel();
+			}
 		}
 	}
 }
@@ -75,7 +90,7 @@ void Game::Draw() const
 {
 	DrawMap();
 
-	m_Text->Draw(Point2f(GetViewPort().width / 2 - m_Text->GetWidth() / 2, GetViewPort().height - 75.f));
+	m_Text[m_Level + 5]->Draw(Point2f(GetViewPort().width / 2 - m_Text[m_Level + 5]->GetWidth() / 2, GetViewPort().height - 75.f));
 
 	utils::SetColor(Color4f(0.1f, 1.f, 0.1f, 1.f));
 	utils::FillRect(m_GreenSquareInfo.Square);
@@ -86,7 +101,20 @@ void Game::Draw() const
 
 	if (m_lose)
 	{
-		m_LoseTex->Draw(Point2f(GetViewPort().width / 2 - m_LoseTex->GetWidth() / 2, 5.f));
+		m_Text[0]->Draw(Point2f(GetViewPort().width / 2 - m_Text[0]->GetWidth() / 2, 5.f));
+	}
+	if (m_Win)
+	{
+		m_Text[4]->Draw(Point2f(GetViewPort().width / 2 - m_Text[4]->GetWidth() / 2, 5.f));
+	}
+
+	if (m_Level == level0)
+	{
+		utils::SetColor(Color4f(0.f, 0.f, 0.f, 1.f));
+		utils::DrawRect(Rectf(GetViewPort().width / 2 - m_Text[3]->GetWidth() / 2 - 10.f, GetViewPort().height / 2 - 50.f, m_Text[3]->GetWidth() + 20.f, 140.f), 5.f);
+		m_Text[1]->Draw(Point2f(GetViewPort().width / 2 - m_Text[1]->GetWidth() / 2, GetViewPort().height / 2 + 40.f));
+		m_Text[2]->Draw(Point2f(GetViewPort().width / 2 - m_Text[2]->GetWidth() / 2, GetViewPort().height / 2));
+		m_Text[3]->Draw(Point2f(GetViewPort().width / 2 - m_Text[3]->GetWidth() / 2, GetViewPort().height / 2 - 40.f));
 	}
 }
 void Game::ProcessKeyDownEvent( const SDL_KeyboardEvent & e )
@@ -96,7 +124,7 @@ void Game::ProcessKeyDownEvent( const SDL_KeyboardEvent & e )
 
 void Game::ProcessKeyUpEvent( const SDL_KeyboardEvent& e )
 {
-	if (!m_lose && !m_GreenSquareInfo.moving && !m_RedSquareInfo.moving)
+	if (!m_Win && !m_lose && !m_GreenSquareInfo.moving && !m_RedSquareInfo.moving)
 	{
 		m_RedSquareInfo.moving = true;
 		m_GreenSquareInfo.moving = true;
@@ -121,12 +149,27 @@ void Game::ProcessKeyUpEvent( const SDL_KeyboardEvent& e )
 	switch (e.keysym.sym)
 	{
 	case SDLK_r:
-		m_direction = standard;
-		m_lose = false;
-		m_RedSquareInfo.moving = false;
-		m_GreenSquareInfo.moving = false;
-		CreateLevel();
+		if (!m_Win)
+		{
+			m_direction = standard;
+			m_lose = false;
+			m_RedSquareInfo.moving = false;
+			m_GreenSquareInfo.moving = false;
+			CreateLevel();
+		}
+		else
+		{
+			m_Win = false;
+			m_Level = level0;
+			CreateLevel();
+		}
 		break;
+
+	case SDLK_e:
+		m_Win = false;
+		m_lose = false;
+		m_Level = level0;
+		CreateLevel();
 	}
 }
 
@@ -202,7 +245,6 @@ void Game::CreateLevel()
 	{
 	case Game::level0:
 		SVGParser::GetVerticesFromSvgFile("level0.svg", m_Vertices);
-		m_Text = new Texture("level0", "dpcomic.ttf", 60, Color4f(0.f, 0.f, 0.f, 1.f));
 		m_RedSquareInfo.Square = Rectf(GetViewPort().width - 155.f, GetViewPort().height - 155.f, 50.f, 50.f);
 		m_GreenSquareInfo.Square = Rectf(105.f, GetViewPort().height - 155.f, 50.f, 50.f);
 		m_BlueSquare = Rectf(GetViewPort().width / 2 - 50.f, GetViewPort().bottom + 120.f, 100.f, 100.f);
@@ -211,19 +253,26 @@ void Game::CreateLevel()
 
 	case Game::level1:
 		SVGParser::GetVerticesFromSvgFile("level1.svg", m_Vertices);
-		m_Text = new Texture("level1", "dpcomic.ttf", 60, Color4f(0.f, 0.f, 0.f, 1.f));
 		m_GreenSquareInfo.Square = Rectf(120.f, GetViewPort().height - 170.f, 25.f, 25.f);
 		m_RedSquareInfo.Square = Rectf(GetViewPort().width - 200.f, GetViewPort().height - 170.f, 25.f, 25.f);
 		m_BlueSquare = Rectf(120.f, GetViewPort().bottom + 105.f, 175.f, 50.f);
 		m_Velocity = Vector2f(500.f, 500.f);
 		break;
+
 	case Game::level2:
 		SVGParser::GetVerticesFromSvgFile("level2.svg", m_Vertices);
-		m_Text = new Texture("level2", "dpcomic.ttf", 60, Color4f(0.f, 0.f, 0.f, 1.f));
 		m_GreenSquareInfo.Square = Rectf(GetViewPort().width / 2 + 150.f, GetViewPort().height / 2 - 90.f, 15.f, 15.f);
 		m_RedSquareInfo.Square = Rectf(GetViewPort().width/ 2 - 125.f, GetViewPort().height / 2 - 90.f, 15.f, 15.f);
 		m_BlueSquare = Rectf(115.f, GetViewPort().height - 100.f, 50, 50.f);
 		m_Velocity = Vector2f(100.f, 100.f);
+		break;
+
+	case Game::level3:
+		SVGParser::GetVerticesFromSvgFile("level3.svg", m_Vertices);
+		m_GreenSquareInfo.Square = Rectf(125.f, 160.f, 20.f, 20.f);
+		m_RedSquareInfo.Square = Rectf(GetViewPort().width / 2 - 125.f, GetViewPort().height / 2 - 90.f, 20.f, 20.f);
+		m_BlueSquare = Rectf(GetViewPort().width / 2 + 75.f, GetViewPort().height / 2 + 100.f, 100.f, 100.f);
+		m_Velocity = Vector2f(50.f, 50.f);
 		break;
 	default:
 		break;
